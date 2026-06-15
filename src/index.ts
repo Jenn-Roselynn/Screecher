@@ -1,7 +1,14 @@
 // src/index.ts
 
 import express, { Request, Response, NextFunction } from "express";
+import postgres from "postgres";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
+
+// --- AUTOMATIC MIGRATIONS ---
+const migrationClient = postgres(config.db.url, { max: 1 });
+await migrate(drizzle(migrationClient), config.db.migrationConfig);
 
 const app = express();
 const PORT = 8080;
@@ -29,7 +36,7 @@ app.use(middlewareLogResponses);
 
 // Metrics increment middleware
 const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) => {
-  config.fileserverHits += 1;
+  config.api.fileserverHits += 1;
   next();
 };
 
@@ -50,7 +57,6 @@ app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response)
   const { body } = req.body;
 
   if (body.length > 140) {
-    // Using our custom error
     throw new BadRequestError("Chirp is too long. Max length is 140");
   }
 
@@ -81,14 +87,14 @@ app.get("/admin/metrics", (req: Request, res: Response) => {
 <html>
   <body>
     <h1>Welcome, Chirpy Admin</h1>
-    <p>Chirpy has been visited ${config.fileserverHits} times!</p>
+    <p>Chirpy has been visited ${config.api.fileserverHits} times!</p>
   </body>
 </html>`);
 });
 
 // Admin Reset endpoint
 app.post("/admin/reset", (req: Request, res: Response) => {
-  config.fileserverHits = 0;
+  config.api.fileserverHits = 0;
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.status(200).send("OK");
 });
