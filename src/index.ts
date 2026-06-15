@@ -6,8 +6,8 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users/users.js";
-import { createChirp, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
-// import { createScreech, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
+import { createChirp, getAllChirps, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
+// import { createScreech, getAllScreeches, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -44,6 +44,16 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
 };
 
 // --- API ENDPOINTS ---
+
+// Get all chirps (screeches) endpoint
+app.get("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches", ...
+  try {
+    const chirps = await getAllChirps(); // const screeches = await getAllScreeches();
+    res.status(200).json(chirps);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Create chirp (screech) endpoint
 app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.post("/api/screeches", ...
