@@ -5,8 +5,9 @@ import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
-import { createUser, deleteAllUsers } from "./db/queries/users/users.js";
+import { createUser, getUserByEmail, deleteAllUsers } from "./db/queries/users/users.js";
 import { createChirp, getAllChirps, getChirpById, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
+import { hashPassword, checkPasswordHash } from "./auth.js";
 // import { createScreech, getAllScreeches, getScreechById, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
@@ -45,11 +46,69 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
 
 // --- API ENDPOINTS ---
 
+// User authentication login endpoint
+app.post("/api/login", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      throw new BadRequestError("Missing email or password field");
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      throw new UnauthorizedError("incorrect email or password");
+    }
+
+    const isPasswordValid = await checkPasswordHash(password, user.hashedPassword);
+    if (!isPasswordValid) {
+      throw new UnauthorizedError("incorrect email or password");
+    }
+
+    res.status(200).json({
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Create user endpoint with argon2 hashing protection
+app.post("/api/users", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email) {
+      throw new BadRequestError("Missing email field");
+    }
+    if (!password) {
+      throw new BadRequestError("Missing password field");
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const user = await createUser({ email, hashedPassword });
+
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Get single chirp (screech) by ID singleton endpoint
 app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches/:screechId", ...
   try {
-    const chirpId = req.params.chirpId as string;
-    const chirp = await getChirpById(chirpId); // const screech = await getScreechById(chirpId);
+    const { chirpId } = req.params;
+    
+    // Explicitly guarantee it's treated as a single string to please the compiler
+    const chirp = await getChirpById(String(chirpId)); 
 
     if (!chirp) {
       throw new NotFoundError("Chirp not found");
@@ -113,25 +172,6 @@ app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-// Create user endpoint
-app.post("/api/users", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      throw new BadRequestError("Missing email field");
-    }
-    const user = await createUser({ email });
-    res.status(201).json({
-      id: user.id,
-      email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // Readiness endpoint
 app.get("/api/healthz", (req: Request, res: Response) => {
   res.set("Content-Type", "text/plain; charset=utf-8");
@@ -178,7 +218,6 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.use("/assets", express.static("./src/app/assets"));
 
 // --- ERROR HANDLING MIDDLEWARE ---
-// Must be defined AFTER all routes
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
   if (err instanceof BadRequestError) {
     res.status(400).json({ error: err.message });
@@ -189,7 +228,7 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
   } else if (err instanceof NotFoundError) {
     res.status(404).json({ error: err.message });
   } else {
-    console.error(err); // Log the actual error for server-side debugging
+    console.error(err);
     res.status(500).json({ error: "Something went wrong on our end" });
   }
 };
