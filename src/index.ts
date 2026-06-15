@@ -44,8 +44,8 @@ app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response)
   const { body } = req.body;
 
   if (body.length > 140) {
-    res.status(400).json({ error: "Chirp is too long" });
-    return;
+    // Triggering the error handler
+    throw new Error("Chirp is too long");
   }
 
   const badWords = ["kerfuffle", "sharbert", "fornax"];
@@ -101,6 +101,16 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 
 // Assets served UNMETERED
 app.use("/assets", express.static("./src/app/assets"));
+
+// --- ERROR HANDLING MIDDLEWARE ---
+
+// Global error handler
+const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.log(err.message);
+  res.status(500).json({ error: "Something went wrong on our end" });
+};
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Screecher is roosting at http://localhost:${PORT}`);
