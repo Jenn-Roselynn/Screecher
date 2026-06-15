@@ -20,7 +20,7 @@ const middlewareLogResponses = (req: Request, res: Response, next: NextFunction)
 
 app.use(middlewareLogResponses);
 
-// Metrics increment middleware
+// Metrics increment middleware — counts page views under /app
 const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) => {
   config.fileserverHits += 1;
   next();
@@ -49,9 +49,11 @@ app.get("/", (req, res) => {
   res.redirect("/app");
 });
 
-// Mount static files at /app
-// We apply the middleware ONLY to this route
+// Page routes under /app are metered (count as hits)
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
+
+// Assets (images, documents, videos) served UNMETERED on purpose —
+// loading a logo or video shouldn't inflate the page-view count.
 app.use("/assets", express.static("./src/app/assets"));
 
 app.post("/echo", (req, res) => {
