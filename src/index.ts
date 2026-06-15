@@ -6,7 +6,7 @@ import { config } from "./config.js";
 const app = express();
 const PORT = 8080;
 
-// This middleware parses incoming JSON requests automatically
+// Built-in JSON body parsing middleware
 app.use(express.json());
 
 // Middleware to log non-OK status codes
@@ -27,9 +27,20 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
+// Chirp validation middleware
+const validateChirpBody = (req: Request, res: Response, next: NextFunction) => {
+  const { body } = req.body;
+  if (!body) {
+    res.status(400).json({ error: "Missing body field" });
+    return;
+  }
+  next();
+};
+
 // --- API ENDPOINTS ---
 
-app.post("/api/validate_chirp", (req: Request, res: Response) => {
+// Chirp validation endpoint
+app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response) => {
   const { body } = req.body;
 
   if (body.length > 140) {
@@ -37,7 +48,18 @@ app.post("/api/validate_chirp", (req: Request, res: Response) => {
     return;
   }
 
-  res.status(200).json({ valid: true });
+  const badWords = ["kerfuffle", "sharbert", "fornax"];
+  const words = body.split(" ");
+  
+  const cleanedWords = words.map((word: string) => {
+    const lowerWord = word.toLowerCase();
+    if (badWords.includes(lowerWord)) {
+      return "****";
+    }
+    return word;
+  });
+
+  res.status(200).json({ cleanedBody: cleanedWords.join(" ") });
 });
 
 // Readiness endpoint
