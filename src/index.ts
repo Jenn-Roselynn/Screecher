@@ -6,6 +6,8 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users/users.js";
+import { createChirp, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
+// import { createScreech, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -41,38 +43,48 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
-// Chirp validation middleware
-const validateChirpBody = (req: Request, res: Response, next: NextFunction) => {
-  const { body } = req.body;
-  if (!body) {
-    res.status(400).json({ error: "Missing body field" });
-    return;
-  }
-  next();
-};
-
 // --- API ENDPOINTS ---
 
-// Chirp validation endpoint
-app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response) => {
-  const { body } = req.body;
+// Create chirp (screech) endpoint
+app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.post("/api/screeches", ...
+  try {
+    const { body, userId } = req.body;
 
-  if (body.length > 140) {
-    throw new BadRequestError("Chirp is too long. Max length is 140");
-  }
-
-  const badWords = ["kerfuffle", "sharbert", "fornax"];
-  const words = body.split(" ");
-  
-  const cleanedWords = words.map((word: string) => {
-    const lowerWord = word.toLowerCase();
-    if (badWords.includes(lowerWord)) {
-      return "****";
+    if (!body) {
+      throw new BadRequestError("Missing body field");
     }
-    return word;
-  });
+    if (!userId) {
+      throw new BadRequestError("Missing userId field");
+    }
+    if (body.length > 140) {
+      throw new BadRequestError("Chirp is too long. Max length is 140");
+    }
 
-  res.status(200).json({ cleanedBody: cleanedWords.join(" ") });
+    const badWords = ["kerfuffle", "sharbert", "fornax"];
+    const words = body.split(" ");
+    
+    const cleanedWords = words.map((word: string) => {
+      const lowerWord = word.toLowerCase();
+      if (badWords.includes(lowerWord)) {
+        return "****";
+      }
+      return word;
+    });
+
+    const cleanedBody = cleanedWords.join(" ");
+
+    const chirp = await createChirp({ body: cleanedBody, userId }); // const screech = await createScreech({ body: cleanedBody, userId });
+    
+    res.status(201).json({
+      id: chirp.id,
+      createdAt: chirp.createdAt,
+      updatedAt: chirp.updatedAt,
+      body: chirp.body,
+      userId: chirp.userId,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Create user endpoint
@@ -118,6 +130,7 @@ app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction)
     throw new ForbiddenError("Not allowed in this environment");
   }
   config.api.fileserverHits = 0;
+  await deleteAllChirps(); // await deleteAllScreeches();
   await deleteAllUsers();
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.status(200).send("OK");
