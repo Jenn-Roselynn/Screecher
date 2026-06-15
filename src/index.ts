@@ -6,6 +6,12 @@ import { config } from "./config.js";
 const app = express();
 const PORT = 8080;
 
+// --- CUSTOM ERROR CLASSES ---
+class BadRequestError extends Error {}
+class UnauthorizedError extends Error {}
+class ForbiddenError extends Error {}
+class NotFoundError extends Error {}
+
 // Built-in JSON body parsing middleware
 app.use(express.json());
 
@@ -44,8 +50,8 @@ app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response)
   const { body } = req.body;
 
   if (body.length > 140) {
-    // Triggering the error handler
-    throw new Error("Chirp is too long");
+    // Using our custom error
+    throw new BadRequestError("Chirp is too long. Max length is 140");
   }
 
   const badWords = ["kerfuffle", "sharbert", "fornax"];
@@ -103,11 +109,20 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.use("/assets", express.static("./src/app/assets"));
 
 // --- ERROR HANDLING MIDDLEWARE ---
-
-// Global error handler
+// Must be defined AFTER all routes
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.log(err.message);
-  res.status(500).json({ error: "Something went wrong on our end" });
+  if (err instanceof BadRequestError) {
+    res.status(400).json({ error: err.message });
+  } else if (err instanceof UnauthorizedError) {
+    res.status(401).json({ error: err.message });
+  } else if (err instanceof ForbiddenError) {
+    res.status(403).json({ error: err.message });
+  } else if (err instanceof NotFoundError) {
+    res.status(404).json({ error: err.message });
+  } else {
+    console.log(err.message);
+    res.status(500).json({ error: "Something went wrong on our end" });
+  }
 };
 
 app.use(errorHandler);
