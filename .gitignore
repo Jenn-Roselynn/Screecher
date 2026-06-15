@@ -14,6 +14,7 @@ server.log
 
 # Environment variables
 .env
+drizzle.config.ts
 
 # OS Files
 .DS_Store
