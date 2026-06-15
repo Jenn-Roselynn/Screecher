@@ -1,5 +1,0 @@
-
-> bootdev_typescript_http_servers@1.0.0 dev
-> npx tsc && node dist/index.js
-
-Screecher is roosting at http://localhost:8080
