@@ -20,11 +20,13 @@ export type DBConfig = {
 
 export type APIConfig = {
   fileserverHits: number;
+  platform: string;
 };
 
 export const config: { api: APIConfig; db: DBConfig } = {
   api: {
     fileserverHits: 0,
+    platform: envOrThrow("PLATFORM"),
   },
   db: {
     url: envOrThrow("DB_URL"),

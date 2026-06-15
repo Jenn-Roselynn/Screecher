@@ -7,7 +7,15 @@ export async function createUser(user: NewUser) {
   const [result] = await db
     .insert(users)
     .values(user)
-    .onConflictDoNothing()
-    .returning();
+    .returning({
+      id: users.id,
+      email: users.email,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    });
   return result;
+}
+
+export async function deleteAllUsers() {
+  await db.delete(users);
 }

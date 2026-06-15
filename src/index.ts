@@ -5,6 +5,7 @@ import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
+import { createUser, deleteAllUsers } from "./db/queries/users/users.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -74,6 +75,25 @@ app.post("/api/validate_chirp", validateChirpBody, (req: Request, res: Response)
   res.status(200).json({ cleanedBody: cleanedWords.join(" ") });
 });
 
+// Create user endpoint
+app.post("/api/users", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw new BadRequestError("Missing email field");
+    }
+    const user = await createUser({ email });
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Readiness endpoint
 app.get("/api/healthz", (req: Request, res: Response) => {
   res.set("Content-Type", "text/plain; charset=utf-8");
@@ -93,8 +113,12 @@ app.get("/admin/metrics", (req: Request, res: Response) => {
 });
 
 // Admin Reset endpoint
-app.post("/admin/reset", (req: Request, res: Response) => {
+app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction) => {
+  if (config.api.platform !== "dev") {
+    throw new ForbiddenError("Not allowed in this environment");
+  }
   config.api.fileserverHits = 0;
+  await deleteAllUsers();
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.status(200).send("OK");
 });
@@ -126,7 +150,7 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
   } else if (err instanceof NotFoundError) {
     res.status(404).json({ error: err.message });
   } else {
-    console.log(err.message);
+    console.error(err); // Log the actual error for server-side debugging
     res.status(500).json({ error: "Something went wrong on our end" });
   }
 };
