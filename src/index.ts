@@ -6,8 +6,8 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users/users.js";
-import { createChirp, getAllChirps, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
-// import { createScreech, getAllScreeches, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
+import { createChirp, getAllChirps, getChirpById, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
+// import { createScreech, getAllScreeches, getScreechById, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -45,7 +45,23 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
 
 // --- API ENDPOINTS ---
 
-// Get all chirps (screeches) endpoint
+// Get single chirp (screech) by ID singleton endpoint
+app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches/:screechId", ...
+  try {
+    const chirpId = req.params.chirpId as string;
+    const chirp = await getChirpById(chirpId); // const screech = await getScreechById(chirpId);
+
+    if (!chirp) {
+      throw new NotFoundError("Chirp not found");
+    }
+
+    res.status(200).json(chirp);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get all chirps (screeches) collection endpoint
 app.get("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches", ...
   try {
     const chirps = await getAllChirps(); // const screeches = await getAllScreeches();
