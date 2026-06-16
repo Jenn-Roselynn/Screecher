@@ -34,11 +34,12 @@ export async function getValidRefreshTokenWithUser(token: string) {
 }
 
 export async function revokeRefreshToken(token: string) {
+  const now = new Date();
   const [result] = await db
     .update(refreshTokens)
     .set({
-      revokedAt: new Date(),
-      updatedAt: new Date(), // Explicitly updating the timestamp per backend best practices
+      revokedAt: now,
+      updatedAt: now,
     })
     .where(eq(refreshTokens.token, token))
     .returning();
