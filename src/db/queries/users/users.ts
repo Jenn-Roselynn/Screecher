@@ -19,7 +19,7 @@ export async function createUser(user: NewUser) {
 }
 
 export async function getUserByEmail(email: string) {
-  const results = await db
+  const [result] = await db
     .select({
       id: users.id,
       email: users.email,
@@ -30,7 +30,7 @@ export async function getUserByEmail(email: string) {
     .from(users)
     .where(eq(users.email, email));
   
-  return results[0];
+  return result;
 }
 
 export async function deleteAllUsers() {

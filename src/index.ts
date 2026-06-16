@@ -7,8 +7,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
 import { createUser, getUserByEmail, deleteAllUsers } from "./db/queries/users/users.js";
 import { createChirp, getAllChirps, getChirpById, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
-import { hashPassword, checkPasswordHash } from "./auth.js";
-// import { createScreech, getAllScreeches, getScreechById, deleteAllScreeches } from "./db/queries/screeches/screeches.js";
+import { hashPassword, checkPasswordHash, makeJWT, getBearerToken, validateJWT } from "./auth.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -49,7 +48,7 @@ const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) =
 // User authentication login endpoint
 app.post("/api/login", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, expiresInSeconds } = req.body;
 
     if (!email || !password) {
       throw new BadRequestError("Missing email or password field");
@@ -65,11 +64,20 @@ app.post("/api/login", async (req: Request, res: Response, next: NextFunction) =
       throw new UnauthorizedError("incorrect email or password");
     }
 
+    // Default to 1 hour, cap at 1 hour, and ensure it's a positive number
+    let expiration = 3600;
+    if (typeof expiresInSeconds === "number") {
+      expiration = Math.min(Math.max(expiresInSeconds, 1), 3600);
+    }
+
+    const token = makeJWT(user.id, expiration, config.api.jwtSecret);
+
     res.status(200).json({
       id: user.id,
       email: user.email,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      token: token,
     });
   } catch (err) {
     next(err);
@@ -103,11 +111,9 @@ app.post("/api/users", async (req: Request, res: Response, next: NextFunction) =
 });
 
 // Get single chirp (screech) by ID singleton endpoint
-app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches/:screechId", ...
+app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { chirpId } = req.params;
-    
-    // Explicitly guarantee it's treated as a single string to please the compiler
     const chirp = await getChirpById(String(chirpId)); 
 
     if (!chirp) {
@@ -121,25 +127,25 @@ app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFu
 });
 
 // Get all chirps (screeches) collection endpoint
-app.get("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.get("/api/screeches", ...
+app.get("/api/chirps", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const chirps = await getAllChirps(); // const screeches = await getAllScreeches();
+    const chirps = await getAllChirps();
     res.status(200).json(chirps);
   } catch (err) {
     next(err);
   }
 });
 
-// Create chirp (screech) endpoint
-app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) => { // app.post("/api/screeches", ...
+// Create chirp (screech) endpoint - NOW AUTHENTICATED
+app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { body, userId } = req.body;
+    const token = getBearerToken(req);
+    const userId = validateJWT(token, config.api.jwtSecret);
+    
+    const { body } = req.body;
 
     if (!body) {
       throw new BadRequestError("Missing body field");
-    }
-    if (!userId) {
-      throw new BadRequestError("Missing userId field");
     }
     if (body.length > 140) {
       throw new BadRequestError("Chirp is too long. Max length is 140");
@@ -158,7 +164,7 @@ app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) 
 
     const cleanedBody = cleanedWords.join(" ");
 
-    const chirp = await createChirp({ body: cleanedBody, userId }); // const screech = await createScreech({ body: cleanedBody, userId });
+    const chirp = await createChirp({ body: cleanedBody, userId });
     
     res.status(201).json({
       id: chirp.id,
@@ -168,6 +174,9 @@ app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) 
       userId: chirp.userId,
     });
   } catch (err) {
+    if (err instanceof Error && (err.message.includes("token") || err.message.includes("Authorization"))) {
+      return next(new UnauthorizedError(err.message));
+    }
     next(err);
   }
 });
@@ -196,7 +205,7 @@ app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction)
     throw new ForbiddenError("Not allowed in this environment");
   }
   config.api.fileserverHits = 0;
-  await deleteAllChirps(); // await deleteAllScreeches();
+  await deleteAllChirps();
   await deleteAllUsers();
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.status(200).send("OK");

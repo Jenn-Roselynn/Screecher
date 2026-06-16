@@ -21,12 +21,14 @@ export type DBConfig = {
 export type APIConfig = {
   fileserverHits: number;
   platform: string;
+  jwtSecret: string;
 };
 
 export const config: { api: APIConfig; db: DBConfig } = {
   api: {
     fileserverHits: 0,
     platform: envOrThrow("PLATFORM"),
+    jwtSecret: envOrThrow("JWT_SECRET"),
   },
   db: {
     url: envOrThrow("DB_URL"),
