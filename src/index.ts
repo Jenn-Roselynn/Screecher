@@ -5,9 +5,34 @@ import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
-import { createUser, getUserByEmail, deleteAllUsers } from "./db/queries/users/users.js";
-import { createChirp, getAllChirps, getChirpById, deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
-import { hashPassword, checkPasswordHash, makeJWT, getBearerToken, validateJWT } from "./auth.js";
+
+// Database cleanup queries
+import { deleteAllUsers } from "./db/queries/users/users.js";
+import { deleteAllChirps } from "./db/queries/chirps/chirps.js"; 
+import { deleteAllRefreshTokens } from "./db/queries/refresh-tokens/refresh-tokens.js";
+import { deleteAllScreeches } from "./db/queries/screeches/screeches.js";
+
+// Custom Errors & Middleware Modules
+import { ForbiddenError } from "./api/errors.js";
+import { 
+  middlewareLogResponses, 
+  middlewareMetricsInc, 
+  errorHandler 
+} from "./api/middleware.js";
+
+// Refactored HTTP Route Handlers
+import { handlerCreateUser } from "./api/users.js";
+import { handlerLogin, handlerRefresh, handlerRevoke } from "./api/auth.js";
+import { 
+  handlerCreateChirp, 
+  handlerGetAllChirps, 
+  handlerGetChirpById 
+} from "./api/chirps.js";
+import {
+  handlerCreateScreech,
+  handlerGetAllScreeches,
+  handlerGetScreechById
+} from "./api/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
 const migrationClient = postgres(config.db.url, { max: 1 });
@@ -16,170 +41,29 @@ await migrate(drizzle(migrationClient), config.db.migrationConfig);
 const app = express();
 const PORT = 8080;
 
-// --- CUSTOM ERROR CLASSES ---
-class BadRequestError extends Error {}
-class UnauthorizedError extends Error {}
-class ForbiddenError extends Error {}
-class NotFoundError extends Error {}
-
 // Built-in JSON body parsing middleware
 app.use(express.json());
 
-// Middleware to log non-OK status codes
-const middlewareLogResponses = (req: Request, res: Response, next: NextFunction) => {
-  res.on("finish", () => {
-    if (res.statusCode >= 400) {
-      console.log(`[NON-OK] ${req.method} ${req.url} - Status: ${res.statusCode}`);
-    }
-  });
-  next();
-};
-
+// Global logging middleware
 app.use(middlewareLogResponses);
-
-// Metrics increment middleware
-const middlewareMetricsInc = (req: Request, res: Response, next: NextFunction) => {
-  config.api.fileserverHits += 1;
-  next();
-};
 
 // --- API ENDPOINTS ---
 
-// User authentication login endpoint
-app.post("/api/login", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, password, expiresInSeconds } = req.body;
+// Auth Routes
+app.post("/api/users", handlerCreateUser);
+app.post("/api/login", handlerLogin);
+app.post("/api/refresh", handlerRefresh);
+app.post("/api/revoke", handlerRevoke);
 
-    if (!email || !password) {
-      throw new BadRequestError("Missing email or password field");
-    }
+// Chirp Collection & Singleton Routes
+app.get("/api/chirps", handlerGetAllChirps);
+app.get("/api/chirps/:chirpId", handlerGetChirpById);
+app.post("/api/chirps", handlerCreateChirp);
 
-    const user = await getUserByEmail(email);
-    if (!user) {
-      throw new UnauthorizedError("incorrect email or password");
-    }
-
-    const isPasswordValid = await checkPasswordHash(password, user.hashedPassword);
-    if (!isPasswordValid) {
-      throw new UnauthorizedError("incorrect email or password");
-    }
-
-    // Default to 1 hour, cap at 1 hour, and ensure it's a positive number
-    let expiration = 3600;
-    if (typeof expiresInSeconds === "number") {
-      expiration = Math.min(Math.max(expiresInSeconds, 1), 3600);
-    }
-
-    const token = makeJWT(user.id, expiration, config.api.jwtSecret);
-
-    res.status(200).json({
-      id: user.id,
-      email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      token: token,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Create user endpoint with argon2 hashing protection
-app.post("/api/users", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email) {
-      throw new BadRequestError("Missing email field");
-    }
-    if (!password) {
-      throw new BadRequestError("Missing password field");
-    }
-
-    const hashedPassword = await hashPassword(password);
-    const user = await createUser({ email, hashedPassword });
-
-    res.status(201).json({
-      id: user.id,
-      email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Get single chirp (screech) by ID singleton endpoint
-app.get("/api/chirps/:chirpId", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { chirpId } = req.params;
-    const chirp = await getChirpById(String(chirpId)); 
-
-    if (!chirp) {
-      throw new NotFoundError("Chirp not found");
-    }
-
-    res.status(200).json(chirp);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Get all chirps (screeches) collection endpoint
-app.get("/api/chirps", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const chirps = await getAllChirps();
-    res.status(200).json(chirps);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Create chirp (screech) endpoint - NOW AUTHENTICATED
-app.post("/api/chirps", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const token = getBearerToken(req);
-    const userId = validateJWT(token, config.api.jwtSecret);
-    
-    const { body } = req.body;
-
-    if (!body) {
-      throw new BadRequestError("Missing body field");
-    }
-    if (body.length > 140) {
-      throw new BadRequestError("Chirp is too long. Max length is 140");
-    }
-
-    const badWords = ["kerfuffle", "sharbert", "fornax"];
-    const words = body.split(" ");
-    
-    const cleanedWords = words.map((word: string) => {
-      const lowerWord = word.toLowerCase();
-      if (badWords.includes(lowerWord)) {
-        return "****";
-      }
-      return word;
-    });
-
-    const cleanedBody = cleanedWords.join(" ");
-
-    const chirp = await createChirp({ body: cleanedBody, userId });
-    
-    res.status(201).json({
-      id: chirp.id,
-      createdAt: chirp.createdAt,
-      updatedAt: chirp.updatedAt,
-      body: chirp.body,
-      userId: chirp.userId,
-    });
-  } catch (err) {
-    if (err instanceof Error && (err.message.includes("token") || err.message.includes("Authorization"))) {
-      return next(new UnauthorizedError(err.message));
-    }
-    next(err);
-  }
-});
+// Screech Parallel Collection & Singleton Routes
+app.get("/api/screeches", handlerGetAllScreeches);
+app.get("/api/screeches/:screechId", handlerGetScreechById);
+app.post("/api/screeches", handlerCreateScreech);
 
 // Readiness endpoint
 app.get("/api/healthz", (req: Request, res: Response) => {
@@ -201,14 +85,26 @@ app.get("/admin/metrics", (req: Request, res: Response) => {
 
 // Admin Reset endpoint
 app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction) => {
-  if (config.api.platform !== "dev") {
-    throw new ForbiddenError("Not allowed in this environment");
+  try {
+    if (config.api.platform !== "dev") {
+      throw new ForbiddenError("Not allowed in this environment");
+    }
+    config.api.fileserverHits = 0;
+    
+    // Leverage database ON DELETE CASCADE by wiping the parent table.
+    // This safely and atomically clears all related chirps, screeches, and tokens.
+    await deleteAllUsers();
+    
+    // Safety sweep for any orphaned records that somehow lacked a user relation
+    await deleteAllChirps();
+    await deleteAllScreeches();
+    await deleteAllRefreshTokens();
+    
+    res.set("Content-Type", "text/plain; charset=utf-8");
+    res.status(200).send("OK");
+  } catch (err) {
+    next(err);
   }
-  config.api.fileserverHits = 0;
-  await deleteAllChirps();
-  await deleteAllUsers();
-  res.set("Content-Type", "text/plain; charset=utf-8");
-  res.status(200).send("OK");
 });
 
 // Echo endpoint
@@ -226,22 +122,7 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 // Assets served UNMETERED
 app.use("/assets", express.static("./src/app/assets"));
 
-// --- ERROR HANDLING MIDDLEWARE ---
-const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-  if (err instanceof BadRequestError) {
-    res.status(400).json({ error: err.message });
-  } else if (err instanceof UnauthorizedError) {
-    res.status(401).json({ error: err.message });
-  } else if (err instanceof ForbiddenError) {
-    res.status(403).json({ error: err.message });
-  } else if (err instanceof NotFoundError) {
-    res.status(404).json({ error: err.message });
-  } else {
-    console.error(err);
-    res.status(500).json({ error: "Something went wrong on our end" });
-  }
-};
-
+// --- GLOBAL ERROR HANDLING MIDDLEWARE ---
 app.use(errorHandler);
 
 app.listen(PORT, () => {

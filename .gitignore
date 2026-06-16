@@ -20,8 +20,10 @@ server.log
 .env.development.local
 .env.test.local
 .env.production.local
-drizzle.config.ts
-drizzle/migrations/
+
+# Database Migrations Guard
+src/db/migrations/meta/
+src/db/migrations/*.sql
 
 # OS Files
 .DS_Store
