@@ -1,9 +1,8 @@
 // src/api/chirps.ts
 
 import type { Request, Response, NextFunction } from "express";
-import { config } from "../config.js";
 import { createChirp, getAllChirps, getChirpById } from "../db/queries/chirps/chirps.js";
-import { getBearerToken, validateJWT } from "../auth.js";
+import { getAuthenticatedUserId } from "./auth-helpers.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "./errors.js";
 
 // GET /api/chirps/:chirpId
@@ -35,8 +34,7 @@ export async function handlerGetAllChirps(req: Request, res: Response, next: Nex
 // POST /api/chirps
 export async function handlerCreateChirp(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = getBearerToken(req);
-    const userId = validateJWT(token, config.api.jwtSecret);
+    const userId = getAuthenticatedUserId(req);
     
     const { body } = req.body;
 
@@ -70,9 +68,6 @@ export async function handlerCreateChirp(req: Request, res: Response, next: Next
       userId: chirp.userId,
     });
   } catch (err) {
-    if (err instanceof Error && (err.message.includes("token") || err.message.includes("Authorization"))) {
-      return next(new UnauthorizedError(err.message));
-    }
     next(err);
   }
 }

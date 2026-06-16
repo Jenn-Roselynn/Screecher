@@ -5,15 +5,18 @@ import { config } from "../config.js";
 import { getUserByEmail } from "../db/queries/users/users.js";
 import { 
   createRefreshToken, 
-  getValidRefreshTokenWithUser, 
+  getRefreshTokenWithUser,
   revokeRefreshToken 
 } from "../db/queries/refresh-tokens/refresh-tokens.js";
 import { 
   checkPasswordHash, 
   makeJWT, 
   makeRefreshToken, 
-  getBearerToken 
 } from "../auth.js";
+import { 
+  getRefreshTokenFromRequest, 
+  getRefreshTokenResponseFields 
+} from "./auth-tokens.js";
 import { BadRequestError, UnauthorizedError } from "./errors.js";
 
 // POST /api/login
@@ -58,7 +61,7 @@ export async function handlerLogin(req: Request, res: Response, next: NextFuncti
       updatedAt: user.updatedAt,
       email: user.email,
       token: accessToken,
-      refreshToken: tokenString,
+      ...getRefreshTokenResponseFields(res, tokenString),
     });
   } catch (err) {
     next(err);
@@ -68,8 +71,8 @@ export async function handlerLogin(req: Request, res: Response, next: NextFuncti
 // POST /api/refresh
 export async function handlerRefresh(req: Request, res: Response, next: NextFunction) {
   try {
-    const tokenString = getBearerToken(req);
-    const tokenRecord = await getValidRefreshTokenWithUser(tokenString);
+    const tokenString = getRefreshTokenFromRequest(req);
+    const tokenRecord = await getRefreshTokenWithUser(tokenString);
 
     if (!tokenRecord) {
       throw new UnauthorizedError("Invalid or missing refresh token");
@@ -102,7 +105,7 @@ export async function handlerRefresh(req: Request, res: Response, next: NextFunc
 // POST /api/revoke
 export async function handlerRevoke(req: Request, res: Response, next: NextFunction) {
   try {
-    const tokenString = getBearerToken(req);
+    const tokenString = getRefreshTokenFromRequest(req);
     
     // Set revoked_at to current timestamp in the database
     await revokeRefreshToken(tokenString);

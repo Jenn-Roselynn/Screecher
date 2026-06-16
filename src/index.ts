@@ -91,11 +91,7 @@ app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction)
     }
     config.api.fileserverHits = 0;
     
-    // Leverage database ON DELETE CASCADE by wiping the parent table.
-    // This safely and atomically clears all related chirps, screeches, and tokens.
     await deleteAllUsers();
-    
-    // Safety sweep for any orphaned records that somehow lacked a user relation
     await deleteAllChirps();
     await deleteAllScreeches();
     await deleteAllRefreshTokens();

@@ -21,10 +21,6 @@ server.log
 .env.test.local
 .env.production.local
 
-# Database Migrations Guard
-src/db/migrations/meta/
-src/db/migrations/*.sql
-
 # OS Files
 .DS_Store
 Thumbs.db

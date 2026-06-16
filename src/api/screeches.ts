@@ -1,9 +1,8 @@
 // src/api/screeches.ts
 
 import type { Request, Response, NextFunction } from "express";
-import { config } from "../config.js";
 import { createScreech, getAllScreeches, getScreechById } from "../db/queries/screeches/screeches.js";
-import { getBearerToken, validateJWT } from "../auth.js";
+import { getAuthenticatedUserId } from "./auth-helpers.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "./errors.js";
 
 // GET /api/screeches/:screechId
@@ -35,8 +34,7 @@ export async function handlerGetAllScreeches(req: Request, res: Response, next: 
 // POST /api/screeches
 export async function handlerCreateScreech(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = getBearerToken(req);
-    const userId = validateJWT(token, config.api.jwtSecret);
+    const userId = getAuthenticatedUserId(req);
     
     const { body } = req.body;
 
@@ -70,9 +68,6 @@ export async function handlerCreateScreech(req: Request, res: Response, next: Ne
       userId: screech.userId,
     });
   } catch (err) {
-    if (err instanceof Error && (err.message.includes("token") || err.message.includes("Authorization"))) {
-      return next(new UnauthorizedError(err.message));
-    }
     next(err);
   }
 }
