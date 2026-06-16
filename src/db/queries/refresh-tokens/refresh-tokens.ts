@@ -38,6 +38,7 @@ export async function revokeRefreshToken(token: string) {
     .update(refreshTokens)
     .set({
       revokedAt: new Date(),
+      updatedAt: new Date(), // Explicitly updating the timestamp per backend best practices
     })
     .where(eq(refreshTokens.token, token))
     .returning();
