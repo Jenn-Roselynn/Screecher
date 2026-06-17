@@ -5,20 +5,31 @@ import { NewChirp, chirps } from "../../schema.js";
 import { asc, eq } from "drizzle-orm";
 
 export async function createChirp(chirp: NewChirp) {
-  const [result] = await db
-    .insert(chirps)
-    .values(chirp)
-    .returning({
-      id: chirps.id,
-      createdAt: chirps.createdAt,
-      updatedAt: chirps.updatedAt,
-      body: chirps.body,
-      userId: chirps.userId,
-    });
+  const [result] = await db.insert(chirps).values(chirp).returning({
+    id: chirps.id,
+    createdAt: chirps.createdAt,
+    updatedAt: chirps.updatedAt,
+    body: chirps.body,
+    userId: chirps.userId,
+  });
   return result;
 }
 
-export async function getAllChirps() {
+export async function getAllChirps(authorId?: string) {
+  if (authorId) {
+    return await db
+      .select({
+        id: chirps.id,
+        createdAt: chirps.createdAt,
+        updatedAt: chirps.updatedAt,
+        body: chirps.body,
+        userId: chirps.userId,
+      })
+      .from(chirps)
+      .where(eq(chirps.userId, authorId))
+      .orderBy(asc(chirps.createdAt));
+  }
+
   return await db
     .select({
       id: chirps.id,

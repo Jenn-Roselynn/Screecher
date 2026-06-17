@@ -34,7 +34,14 @@ export async function handlerGetChirpById(req: Request, res: Response, next: Nex
 // GET /api/chirps
 export async function handlerGetAllChirps(req: Request, res: Response, next: NextFunction) {
   try {
-    const chirps = await getAllChirps();
+    let authorId: string | undefined = undefined;
+    const authorIdQuery = req.query.authorId;
+    
+    if (typeof authorIdQuery === "string") {
+      authorId = authorIdQuery;
+    }
+
+    const chirps = await getAllChirps(authorId);
     res.status(200).json(chirps);
   } catch (err) {
     next(err);
