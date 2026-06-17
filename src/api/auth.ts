@@ -3,19 +3,19 @@
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
 import { getUserByEmail } from "../db/queries/users/users.js";
-import { 
-  createRefreshToken, 
+import {
+  createRefreshToken,
   getRefreshTokenWithUser,
-  revokeRefreshToken 
+  revokeRefreshToken,
 } from "../db/queries/refresh-tokens/refresh-tokens.js";
-import { 
-  checkPasswordHash, 
-  makeJWT, 
-  makeRefreshToken, 
+import {
+  checkPasswordHash,
+  makeJWT,
+  makeRefreshToken,
 } from "../auth.js";
-import { 
-  getRefreshTokenFromRequest, 
-  getRefreshTokenResponseFields 
+import {
+  getRefreshTokenFromRequest,
+  getRefreshTokenResponseFields,
 } from "./auth-tokens.js";
 import { BadRequestError, UnauthorizedError } from "./errors.js";
 
@@ -27,13 +27,13 @@ export async function handlerLogin(req: Request, res: Response, next: NextFuncti
     if (!email || !password) {
       throw new BadRequestError("Missing email or password field");
     }
-
     const user = await getUserByEmail(email);
+
     if (!user) {
       throw new UnauthorizedError("incorrect email or password");
     }
-
     const isPasswordValid = await checkPasswordHash(password, user.hashedPassword);
+
     if (!isPasswordValid) {
       throw new UnauthorizedError("incorrect email or password");
     }
@@ -43,7 +43,7 @@ export async function handlerLogin(req: Request, res: Response, next: NextFuncti
 
     // Generate a random 256-bit refresh token
     const tokenString = makeRefreshToken();
-    
+
     // Refresh tokens expire after 60 days
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 60);
@@ -60,6 +60,7 @@ export async function handlerLogin(req: Request, res: Response, next: NextFuncti
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       email: user.email,
+      isChirpyRed: user.isChirpyRed,
       token: accessToken,
       ...getRefreshTokenResponseFields(res, tokenString),
     });
@@ -73,7 +74,6 @@ export async function handlerRefresh(req: Request, res: Response, next: NextFunc
   try {
     const tokenString = getRefreshTokenFromRequest(req);
     const tokenRecord = await getRefreshTokenWithUser(tokenString);
-
     if (!tokenRecord) {
       throw new UnauthorizedError("Invalid or missing refresh token");
     }
@@ -90,7 +90,6 @@ export async function handlerRefresh(req: Request, res: Response, next: NextFunc
 
     // Issue a brand new access token valid for 1 hour
     const newAccessToken = makeJWT(tokenRecord.user.id, 3600, config.api.jwtSecret);
-
     res.status(200).json({
       token: newAccessToken,
     });
@@ -106,7 +105,7 @@ export async function handlerRefresh(req: Request, res: Response, next: NextFunc
 export async function handlerRevoke(req: Request, res: Response, next: NextFunction) {
   try {
     const tokenString = getRefreshTokenFromRequest(req);
-    
+
     // Set revoked_at to current timestamp in the database
     await revokeRefreshToken(tokenString);
 

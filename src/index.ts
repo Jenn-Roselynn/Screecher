@@ -5,6 +5,7 @@ import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { config } from "./config.js";
+import { handlerWebhook } from "./api/webhooks.js";
 
 // Database cleanup queries
 import { deleteAllUsers } from "./db/queries/users/users.js";
@@ -57,6 +58,9 @@ app.put("/api/users", handlerUpdateUser);
 app.post("/api/login", handlerLogin);
 app.post("/api/refresh", handlerRefresh);
 app.post("/api/revoke", handlerRevoke);
+
+// Webhook Routes
+app.post("/api/polka/webhooks", handlerWebhook);
 
 // Chirp Collection & Singleton Routes
 app.get("/api/chirps", handlerGetAllChirps);

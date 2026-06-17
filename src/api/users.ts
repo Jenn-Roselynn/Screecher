@@ -1,5 +1,4 @@
 // src/api/users.ts
-
 import type { Request, Response, NextFunction } from "express";
 import { createUser, updateUser } from "../db/queries/users/users.js";
 import { hashPassword } from "../auth.js";
@@ -26,6 +25,7 @@ export async function handlerCreateUser(req: Request, res: Response, next: NextF
       email: user.email,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      isChirpyRed: user.isChirpyRed,
     });
   } catch (err) {
     next(err);
@@ -48,7 +48,13 @@ export async function handlerUpdateUser(req: Request, res: Response, next: NextF
     const hashedPassword = await hashPassword(password);
     const updatedUser = await updateUser(userId, email, hashedPassword);
 
-    res.status(200).json(updatedUser);
+    res.status(200).json({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
+      isChirpyRed: updatedUser.isChirpyRed,
+    });
   } catch (err) {
     next(err);
   }
