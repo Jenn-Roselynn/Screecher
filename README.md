@@ -1,4 +1,4 @@
-# Screecher Backend API 🐦✨
+# Screecher Backend API 🦇✨
 
 A high-performance, production-ready RESTful microblogging backend engine built from scratch using TypeScript, Node.js, and Express. This platform implements robust relational data models, structured database migration pipelines, secure cryptographic authentication mechanisms, and an optimized stateful persistence layer backed by PostgreSQL and Drizzle ORM.
 
