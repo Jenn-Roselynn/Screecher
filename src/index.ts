@@ -21,7 +21,7 @@ import {
 } from "./api/middleware.js";
 
 // Refactored HTTP Route Handlers
-import { handlerCreateUser } from "./api/users.js";
+import { handlerCreateUser, handlerUpdateUser } from "./api/users.js";
 import { handlerLogin, handlerRefresh, handlerRevoke } from "./api/auth.js";
 import { 
   handlerCreateChirp, 
@@ -51,6 +51,7 @@ app.use(middlewareLogResponses);
 
 // Auth Routes
 app.post("/api/users", handlerCreateUser);
+app.put("/api/users", handlerUpdateUser);
 app.post("/api/login", handlerLogin);
 app.post("/api/refresh", handlerRefresh);
 app.post("/api/revoke", handlerRevoke);
@@ -91,7 +92,10 @@ app.post("/admin/reset", async (req: Request, res: Response, next: NextFunction)
     }
     config.api.fileserverHits = 0;
     
+    // Leverage database ON DELETE CASCADE by wiping the parent table.
     await deleteAllUsers();
+    
+    // Safety sweep for any orphaned records that somehow lacked a user relation
     await deleteAllChirps();
     await deleteAllScreeches();
     await deleteAllRefreshTokens();
