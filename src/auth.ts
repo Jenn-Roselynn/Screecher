@@ -53,6 +53,22 @@ export function getBearerToken(req: Request): string {
   return parts[1].trim();
 }
 
+// Added function to extract the API Key from the Authorization header
+export function getAPIKey(req: Request): string {
+  const authHeader = req.get("Authorization");
+  if (!authHeader) {
+    throw new Error("Missing Authorization header");
+  }
+  
+  // Expecting format: "ApiKey THE_KEY_HERE"
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0] !== "ApiKey" || !parts[1]) {
+    throw new Error("Invalid Authorization header format");
+  }
+  
+  return parts[1].trim();
+}
+
 export function makeRefreshToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
