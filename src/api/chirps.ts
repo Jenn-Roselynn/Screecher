@@ -44,20 +44,13 @@ export async function handlerGetAllChirps(req: Request, res: Response, next: Nex
     let chirps = await getAllChirps(authorId);
 
     const sortQuery = req.query.sort;
-    if (typeof sortQuery === "string" && sortQuery.toLowerCase() === "desc") {
-      chirps.sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        return timeB - timeA;
-      });
-    } else {
-      // Default or explicit 'asc' sorting
-      chirps.sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        return timeA - timeB;
-      });
-    }
+    const isDescending = typeof sortQuery === "string" && sortQuery.toLowerCase() === "desc";
+
+    chirps.sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return isDescending ? timeB - timeA : timeA - timeB;
+    });
 
     res.status(200).json(chirps);
   } catch (err) {
