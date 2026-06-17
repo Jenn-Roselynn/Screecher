@@ -45,6 +45,10 @@ export async function getScreechById(id: string) {
   return result;
 }
 
+export async function deleteScreech(id: string) {
+  await db.delete(chirps).where(eq(chirps.id, id));
+}
+
 export async function deleteAllScreeches() {
   await db.delete(chirps); // await db.delete(screeches);
 }

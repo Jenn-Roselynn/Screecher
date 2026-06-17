@@ -1,9 +1,18 @@
 // src/api/screeches.ts
 
 import type { Request, Response, NextFunction } from "express";
-import { createScreech, getAllScreeches, getScreechById } from "../db/queries/screeches/screeches.js";
+import { 
+  createScreech, 
+  getAllScreeches, 
+  getScreechById, 
+  deleteScreech 
+} from "../db/queries/screeches/screeches.js";
 import { getAuthenticatedUserId } from "./auth-helpers.js";
-import { BadRequestError, NotFoundError, UnauthorizedError } from "./errors.js";
+import { 
+  BadRequestError, 
+  NotFoundError, 
+  ForbiddenError 
+} from "./errors.js";
 
 // GET /api/screeches/:screechId
 export async function handlerGetScreechById(req: Request, res: Response, next: NextFunction) {
@@ -67,6 +76,28 @@ export async function handlerCreateScreech(req: Request, res: Response, next: Ne
       body: screech.body,
       userId: screech.userId,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /api/screeches/:screechId
+export async function handlerDeleteScreech(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const { screechId } = req.params;
+
+    const screech = await getScreechById(String(screechId));
+    if (!screech) {
+      throw new NotFoundError("Screech not found");
+    }
+
+    if (screech.userId !== userId) {
+      throw new ForbiddenError("Cannot delete someone else's screech");
+    }
+
+    await deleteScreech(String(screechId));
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

@@ -26,12 +26,14 @@ import { handlerLogin, handlerRefresh, handlerRevoke } from "./api/auth.js";
 import { 
   handlerCreateChirp, 
   handlerGetAllChirps, 
-  handlerGetChirpById 
+  handlerGetChirpById,
+  handlerDeleteChirp 
 } from "./api/chirps.js";
 import {
   handlerCreateScreech,
   handlerGetAllScreeches,
-  handlerGetScreechById
+  handlerGetScreechById,
+  handlerDeleteScreech
 } from "./api/screeches.js";
 
 // --- AUTOMATIC MIGRATIONS ---
@@ -60,11 +62,13 @@ app.post("/api/revoke", handlerRevoke);
 app.get("/api/chirps", handlerGetAllChirps);
 app.get("/api/chirps/:chirpId", handlerGetChirpById);
 app.post("/api/chirps", handlerCreateChirp);
+app.delete("/api/chirps/:chirpId", handlerDeleteChirp);
 
 // Screech Parallel Collection & Singleton Routes
 app.get("/api/screeches", handlerGetAllScreeches);
 app.get("/api/screeches/:screechId", handlerGetScreechById);
 app.post("/api/screeches", handlerCreateScreech);
+app.delete("/api/screeches/:screechId", handlerDeleteScreech);
 
 // Readiness endpoint
 app.get("/api/healthz", (req: Request, res: Response) => {
