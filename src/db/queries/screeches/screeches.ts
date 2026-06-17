@@ -1,19 +1,19 @@
 // src/db/queries/screeches/screeches.ts
 
 import { db } from "../../index.js";
-import { NewChirp, chirps } from "../../schema.js"; // import { NewScreech, screeches } from "../../schema.js";
+import { NewScreech, screeches } from "../../schema.js";
 import { asc, eq } from "drizzle-orm";
 
-export async function createScreech(screech: NewChirp) { // export async function createScreech(screech: NewScreech) {
+export async function createScreech(screech: NewScreech) {
   const [result] = await db
-    .insert(chirps) // .insert(screeches)
+    .insert(screeches)
     .values(screech)
     .returning({
-      id: chirps.id,
-      createdAt: chirps.createdAt,
-      updatedAt: chirps.updatedAt,
-      body: chirps.body,
-      userId: chirps.userId,
+      id: screeches.id,
+      createdAt: screeches.createdAt,
+      updatedAt: screeches.updatedAt,
+      body: screeches.body,
+      userId: screeches.userId,
     });
   return result;
 }
@@ -21,34 +21,34 @@ export async function createScreech(screech: NewChirp) { // export async functio
 export async function getAllScreeches() {
   return await db
     .select({
-      id: chirps.id,
-      createdAt: chirps.createdAt,
-      updatedAt: chirps.updatedAt,
-      body: chirps.body,
-      userId: chirps.userId,
+      id: screeches.id,
+      createdAt: screeches.createdAt,
+      updatedAt: screeches.updatedAt,
+      body: screeches.body,
+      userId: screeches.userId,
     })
-    .from(chirps) // .from(screeches)
-    .orderBy(asc(chirps.createdAt));
+    .from(screeches)
+    .orderBy(asc(screeches.createdAt));
 }
 
 export async function getScreechById(id: string) {
   const [result] = await db
     .select({
-      id: chirps.id,
-      createdAt: chirps.createdAt,
-      updatedAt: chirps.updatedAt,
-      body: chirps.body,
-      userId: chirps.userId,
+      id: screeches.id,
+      createdAt: screeches.createdAt,
+      updatedAt: screeches.updatedAt,
+      body: screeches.body,
+      userId: screeches.userId,
     })
-    .from(chirps) // .from(screeches)
-    .where(eq(chirps.id, id));
+    .from(screeches)
+    .where(eq(screeches.id, id));
   return result;
 }
 
 export async function deleteScreech(id: string) {
-  await db.delete(chirps).where(eq(chirps.id, id));
+  await db.delete(screeches).where(eq(screeches.id, id));
 }
 
 export async function deleteAllScreeches() {
-  await db.delete(chirps); // await db.delete(screeches);
+  await db.delete(screeches);
 }
